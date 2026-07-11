@@ -1,0 +1,6 @@
+{
+  "name": "System Lab",
+  "description": "AI-powered SaaS platform for generating high-converting landing pages, custom banners, compelling copy, and modular layout sections.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

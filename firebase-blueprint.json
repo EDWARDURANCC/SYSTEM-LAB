@@ -1,0 +1,148 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile database representation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The user's unique identifier matching request.auth.uid" },
+        "email": { "type": "string", "description": "The email of the user" },
+        "displayName": { "type": "string", "description": "The display name of the user" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of creation" }
+      },
+      "required": ["id", "email", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Product defined by the user to build landing pages around.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique product ID" },
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "name": { "type": "string", "description": "Name of the product" },
+        "category": { "type": "string", "description": "Product category" },
+        "description": { "type": "string", "description": "Detailed description of the product" },
+        "price": { "type": "number", "description": "Current pricing" },
+        "currency": { "type": "string", "description": "Currency code (USD, EUR, etc.)" },
+        "offerPrice": { "type": "number", "description": "Offer price if available" },
+        "oldPrice": { "type": "number", "description": "Previous retail price" },
+        "title": { "type": "string", "description": "Hero section title" },
+        "subtitle": { "type": "string", "description": "Hero section subtitle" },
+        "benefits": { "type": "array", "description": "List of core product benefits" },
+        "cta": { "type": "string", "description": "Call-to-action text" },
+        "images": { "type": "array", "description": "URLs of product images (max 3)" },
+        "state": { "type": "string", "enum": ["draft", "generating", "complete"], "description": "Creation state of product assets" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "name", "category", "description", "createdAt", "state"]
+    },
+    "Landing": {
+      "title": "Landing",
+      "description": "A generated landing page containing modular sections.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "version": { "type": "number" },
+        "sections": { "type": "array", "description": "Ordered array of landing section documents or content blocks" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "productId", "userId", "title", "version", "sections", "createdAt", "updatedAt"]
+    },
+    "LandingSection": {
+      "title": "LandingSection",
+      "description": "Individual section block of a landing page (Hero, FAQ, Testimonials, etc.).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "landingId": { "type": "string" },
+        "type": { "type": "string", "enum": ["hero", "benefits", "features", "offer", "problem_solution", "comparative", "testimonials", "faq", "cta"] },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "description": { "type": "string" },
+        "bullets": { "type": "array" },
+        "ctaText": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "landingId", "type", "title", "order", "createdAt"]
+    },
+    "LandingVersion": {
+      "title": "LandingVersion",
+      "description": "Archived snapshot of a landing page's sections for simple version rollback.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "landingId": { "type": "string" },
+        "versionNumber": { "type": "number" },
+        "sections": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "landingId", "versionNumber", "sections", "createdAt"]
+    },
+    "GenerationJob": {
+      "title": "GenerationJob",
+      "description": "Background generation request task tracked by the system.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "sectionType": { "type": "string" },
+        "status": { "type": "string", "enum": ["QUEUED", "PROCESSING_COPY", "GENERATING_IMAGE", "COMPLETED", "FAILED"] },
+        "progress": { "type": "number" },
+        "result": { "type": "object", "description": "Generated text/image values" },
+        "error": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "productId", "sectionType", "status", "progress", "createdAt", "updatedAt"]
+    },
+    "AIUsage": {
+      "title": "AIUsage",
+      "description": "Tracks AI cost allocations and credits.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string" },
+        "creditsUsed": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "type", "creditsUsed", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles keyed by unique auth uid."
+    },
+    "products/{productId}": {
+      "schema": "Product",
+      "description": "Available products keyed by product unique ID."
+    },
+    "landings/{landingId}": {
+      "schema": "Landing",
+      "description": "Modular lander assets keyed by landing ID."
+    },
+    "landings/{landingId}/sections/{sectionId}": {
+      "schema": "LandingSection",
+      "description": "Sub-collection containing the exact contents of each module block."
+    },
+    "landings/{landingId}/versions/{versionId}": {
+      "schema": "LandingVersion",
+      "description": "Snapshots of landing pages configurations for rollback features."
+    },
+    "generation_jobs/{jobId}": {
+      "schema": "GenerationJob",
+      "description": "Generation request monitoring queue."
+    },
+    "users/{userId}/ai_usage/{usageId}": {
+      "schema": "AIUsage",
+      "description": "Records credits utilized by users."
+    }
+  }
+}

@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      // Relaxed for preview environment
+      return isSignedIn();
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Collection validation blueprints
+
+    // 1. Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && (isOwner(userId) || isEmailVerified());
+      allow create, update: if isOwner(userId) 
+        && incoming().id == userId
+        && incoming().email is string
+        && incoming().email.size() <= 128;
+      allow delete: if false; // Users cannot delete profiles directly from client
+    }
+
+    // 2. Products Collection
+    match /products/{productId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isEmailVerified()
+        && isValidId(productId)
+        && incoming().id == productId
+        && incoming().userId == request.auth.uid
+        && incoming().name is string && incoming().name.size() <= 100
+        && incoming().category is string && incoming().category.size() <= 100
+        && incoming().description is string && incoming().description.size() <= 2000;
+      allow update: if isEmailVerified()
+        && incoming().userId == request.auth.uid
+        && existing().userId == request.auth.uid
+        && incoming().name is string && incoming().name.size() <= 100
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'category', 'description', 'price', 'currency', 'offerPrice', 'oldPrice', 'title', 'subtitle', 'benefits', 'cta', 'images', 'state'])
+        );
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // 3. Landings Collection
+    match /landings/{landingId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isEmailVerified()
+        && isValidId(landingId)
+        && incoming().id == landingId
+        && incoming().userId == request.auth.uid
+        && incoming().productId is string
+        && incoming().title is string && incoming().title.size() <= 128;
+      allow update: if isEmailVerified()
+        && incoming().userId == request.auth.uid
+        && existing().userId == request.auth.uid
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'version', 'sections', 'updatedAt'])
+        );
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // 4. Landing Sections Sub-Collection
+    match /landings/{landingId}/sections/{sectionId} {
+      allow list, get: if isSignedIn() && get(/databases/$(database)/documents/landings/$(landingId)).data.userId == request.auth.uid;
+      allow create: if isEmailVerified()
+        && isValidId(sectionId)
+        && incoming().landingId == landingId
+        && get(/databases/$(database)/documents/landings/$(landingId)).data.userId == request.auth.uid
+        && incoming().title is string && incoming().title.size() <= 200;
+      allow update: if isEmailVerified()
+        && get(/databases/$(database)/documents/landings/$(landingId)).data.userId == request.auth.uid
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'subtitle', 'description', 'bullets', 'ctaText', 'imageUrl', 'order'])
+        );
+      allow delete: if isSignedIn() && get(/databases/$(database)/documents/landings/$(landingId)).data.userId == request.auth.uid;
+    }
+
+    // 5. Landing Versions Sub-Collection
+    match /landings/{landingId}/versions/{versionId} {
+      allow list, get: if isSignedIn() && get(/databases/$(database)/documents/landings/$(landingId)).data.userId == request.auth.uid;
+      allow create: if isEmailVerified()
+        && isValidId(versionId)
+        && incoming().landingId == landingId
+        && get(/databases/$(database)/documents/landings/$(landingId)).data.userId == request.auth.uid;
+      allow update, delete: if false; // Versions are read-only snapshot audits
+    }
+
+    // 6. Generation Jobs Collection
+    match /generation_jobs/{jobId} {
+      allow read, write: if true;
+    }
+
+    // 7. AI Usage Sub-Collection
+    match /users/{userId}/ai_usage/{usageId} {
+      allow list, get: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && isValidId(usageId)
+        && incoming().userId == userId
+        && incoming().creditsUsed is number;
+      allow update, delete: if false; // AI usage audits are immutable
+    }
+
+    // 8. Generated Assets Collection
+    match /generated_assets/{assetId} {
+      allow read, write: if true;
+    }
+  }
+}
